@@ -4,9 +4,11 @@ OpenCL port: TODO
 starting from https://github.com/masterzorag/ec_pure_c code, now we need to run
 "ideally N point multiplication by scalar in parallel".
 
-code needs to respect OpenCL 1.1 specification: http://www.khronos.org/registry/cl/specs/opencl-1.1.pdf
-avoid AMD/CUDA specific implementation about threads/wavefronts and friends, then we can move and run
-this code on CPU/GPU/Accelerators without issue, again: respect OpenCL standard 1.1
+code needs to respect OpenCL 1.1 specification:
+* http://www.khronos.org/registry/cl/specs/opencl-1.1.pdf
+
+avoid AMD/CUDA specific implementation about threads/wavefronts and friends, then we can move
+and run this code on CPU/GPU/Accelerators without issue, again: respect OpenCL standard 1.1
 
 I can test OpenCL code on:
 
