@@ -1,24 +1,31 @@
 OpenCL port: TODO
 ------------------
 
-starting from https://github.com/masterzorag/ec_pure_c code, now we need to run ideally N point multiplication by scalar in parallel.
+starting from https://github.com/masterzorag/ec_pure_c code, now we need to run
+"ideally N point multiplication by scalar in parallel".
 
 code needs to respect OpenCL 1.1 specification: http://www.khronos.org/registry/cl/specs/opencl-1.1.pdf
-avoid AMD/CUDA specific implementation about threads/wavefronts and friends, again: OpenCL standard 1.1
+avoid AMD/CUDA specific implementation about threads/wavefronts and friends, then we can move and run
+this code on CPU/GPU/Accelerators without issue, again: respect OpenCL standard 1.1
 
 I can test OpenCL code on:
 
-	1. Accelerator Cell B.E. with IBM OpenCL implementation:
-	add OpenCL query result
+	1. AMD E-350 / HD6310, Mesa OpenCL implementation, gentoo_x86:
+	   check clinfo.PALM
+	   #radeon @freenode
 
-	2. AMD E-350 / HD6310 with Mesa OpenCL implementation:
-	check clinfo.PALM
+	2. Accelerator Cell B.E., IBM OpenCL implementation, Fedora Core_ppc:
+	add OpenCL query result	
+	
+focus on device 1 first, get a working PoC, then move on device 2 and optimize.
 
 
-bn_* functions uses a fixed length of 20 item, use a define and hardcode lenght
+bn_* functions uses a fixed length of 20 item, use a define and hardcode lenght.
 
-alignment, %128 bits, each * 16 byte is good
+alignment, %128 bits, each * 16 byte is good.
 
-address space: write data struct for _constant and _local
+address space: write data struct for _constant and _local.
 
-ideally _local address space is faster, use this where needed data reuse
+ideally _local address space is faster, use this where needed data reuse.
+
+use async_work_group_copy when possible.
