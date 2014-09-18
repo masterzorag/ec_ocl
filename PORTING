@@ -12,7 +12,7 @@ I can test OpenCL code on:
 	add OpenCL query result
 
 	2. AMD E-350 / HD6310 with Mesa OpenCL implementation:
-	add OpenCL query result
+	check clinfo.PALM
 
 
 bn_* functions uses a fixed length of 20 item, use a define and hardcode lenght

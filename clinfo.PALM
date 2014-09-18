@@ -1,0 +1,74 @@
+Number of platforms                               1
+  Platform Name                                   Default
+  Platform Vendor                                 Mesa
+  Platform Version                                OpenCL 1.1 MESA 10.2.7
+  Platform Profile                                FULL_PROFILE
+  Platform Extensions                             cl_khr_icd
+  Platform Extensions function suffix             MESA
+
+  Platform Name                                   Default
+Number of devices                                 1
+  Device Name                                     AMD PALM
+  Device Vendor                                   X.Org
+  Device Version                                  OpenCL 1.1 MESA 10.2.7
+  Driver Version                                  10.2.7
+  Device OpenCL C Version                         OpenCL C 1.1
+  Device Type                                     GPU
+  Device Profile                                  FULL_PROFILE
+  Max compute units                               1
+  Max clock frequency                             0MHz
+  Device Partition                                (n/a)
+  Max work item dimensions                        3
+    Max work item size[0]                         256
+    Max work item size[1]                         256
+    Max work item size[2]                         256
+  Max work group size                             256
+  Preferred work group size multiple              1
+  Preferred / native vector sizes                 
+    char                                                16 / 16      
+    short                                                8 / 8       
+    int                                                  4 / 4       
+    long                                                 2 / 2       
+    half                                                 0 / 0        (n/a)
+    float                                                4 / 4       
+    double                                               2 / 2        (n/a)
+  Half-precision   Floating-point support         (n/a)
+  Single-precision Floating-point support        
+    Denormals                                     Yes
+    Infinity and NANs                             Yes
+    Round to nearest                              Yes
+    Round to zero                                 No
+    Round to infinity                             No
+    IEEE754-2008 fused multiply-add               No
+    Correctly-rounded divide and sqrt operations  No
+    Support is emulated in software               No
+  Double-precision Floating-point support         (n/a)
+  Address bits                                    32, Little-Endian
+  Global memory size                              1073741824 (  1024MB)
+  Error Correction support                        No
+  Max memory allocation                           268435456 (   256MB)
+  Unified memory for Host and Device              Yes
+  Minimum alignment for any data type             128 bytes
+  Alignment of base address                       128 bits (16 bytes)
+  Global Memory cache type                        None
+  Image support                                   Yes
+    Max number of samplers per kernel             16
+    Max 2D image size                             32768x32768 pixels
+    Max 3D image size                             4096x4096x4096 pixels
+    Max number of read image args                 32
+    Max number of write image args                32
+  Local memory type                               Local
+  Local memory size                               32768 (    32KB)
+  Max constant buffer size                        65536 (    64KB)
+  Max number of constant args                     13
+  Max size of kernel argument                     1024
+  Queue properties                                
+    Out-of-order execution                        No
+    Profiling                                     Yes
+  Profiling timer resolution                      0ns
+  Execution capabilities                          
+    Run OpenCL kernels                            Yes
+    Run native kernels                            No
+  Device Available                                Yes
+  Compiler Available                              Yes
+  Device Extensions                               
