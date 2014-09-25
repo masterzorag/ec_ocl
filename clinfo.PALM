@@ -1,7 +1,7 @@
 Number of platforms                               1
   Platform Name                                   Default
   Platform Vendor                                 Mesa
-  Platform Version                                OpenCL 1.1 MESA 10.2.7
+  Platform Version                                OpenCL 1.1 MESA 10.3.0
   Platform Profile                                FULL_PROFILE
   Platform Extensions                             cl_khr_icd
   Platform Extensions function suffix             MESA
@@ -10,12 +10,12 @@ Number of platforms                               1
 Number of devices                                 1
   Device Name                                     AMD PALM
   Device Vendor                                   X.Org
-  Device Version                                  OpenCL 1.1 MESA 10.2.7
-  Driver Version                                  10.2.7
+  Device Version                                  OpenCL 1.1 MESA 10.3.0
+  Driver Version                                  10.3.0
   Device OpenCL C Version                         OpenCL C 1.1
   Device Type                                     GPU
   Device Profile                                  FULL_PROFILE
-  Max compute units                               1
+  Max compute units                               2
   Max clock frequency                             0MHz
   Device Partition                                (n/a)
   Max work item dimensions                        3
@@ -51,15 +51,10 @@ Number of devices                                 1
   Minimum alignment for any data type             128 bytes
   Alignment of base address                       128 bits (16 bytes)
   Global Memory cache type                        None
-  Image support                                   Yes
-    Max number of samplers per kernel             16
-    Max 2D image size                             32768x32768 pixels
-    Max 3D image size                             4096x4096x4096 pixels
-    Max number of read image args                 32
-    Max number of write image args                32
+  Image support                                   No
   Local memory type                               Local
   Local memory size                               32768 (    32KB)
-  Max constant buffer size                        65536 (    64KB)
+  Max constant buffer size                        268435456 (   256MB)
   Max number of constant args                     13
   Max size of kernel argument                     1024
   Queue properties                                
