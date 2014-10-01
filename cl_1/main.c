@@ -62,19 +62,23 @@ typedef cl_uint u32;
 typedef struct{
 	u8 x[20];
 	u8 y[20];
-	u8 pad[3];
-	u8 c;
-	u32 dig;
 } point;
+
+typedef struct{
+	point P;
+	u8 c;
+	u8 dig;
+	u8 unused;		//makes 64b %16 == 0
+	u8 k[21];
+} data;
 
 typedef struct{
 	u8 p[20];
 	u8 a[20];
 	u8 b[20];
 	point G;
+	u8 unused[8];		//makes 108b %16 == 0
 } Elliptic_Curve;
-
-//static struct Elliptic_Curve EC;
 
 typedef char s8;
 typedef unsigned long long int u64;
@@ -108,11 +112,11 @@ u8 *_x_to_u8_buffer(const s8 *hex){
 	return res;
 }
 
-void bn_print(const char *name, const u8 *a, const short n, const short q){
+void bn_print(const char *name, const u8 *a, const short n, const short b){
 	printf("%s", name);
 	for(uint i = 0; i < n; i++) printf("%02x", a[i]);
 
-	if(q == 1) printf("\n");
+	if(b == 1) printf("\n");
 }
 
 int main(int argc, char **argv)
@@ -163,7 +167,7 @@ int main(int argc, char **argv)
 		clGetProgramBuildInfo(pro, devid, CL_PROGRAM_BUILD_LOG, 0x10000, buf, NULL);
 		printf("\n%s\n", buf); return(-1); }
 
-	cl_kernel kernelobj = 	clCreateKernel(pro, argv[2], &res); 	check_return(res);
+	cl_kernel kernelobj = clCreateKernel(pro, argv[2], &res); 	check_return(res);
 	
 	/* Get the maximum work-group size for executing the kernel on the device */
 	size_t global, local;
@@ -176,52 +180,56 @@ int main(int argc, char **argv)
 	cl_command_queue cmd_queue = clCreateCommandQueue(context, devid, CL_QUEUE_PROFILING_ENABLE, NULL);
 	if(cmd_queue == NULL) { printf("Compute device setup failed\n"); return(-1); }
 
-	int n = 2 * 4;	//num_group * local workgroup size 
-	global = n;
 	local = 4;
+	int n = 2 * local;	//num_group * local workgroup size 
+	global = n;
 	
 	int	num_groups=		global / local,
 		allocated_local=	//sizeof(cl_uint4) * local *5 + 
 					sizeof(cl_uint8) * local;
 
-	point *P __attribute__ ((aligned(16)));
-	P = calloc(n, sizeof(point) *1);
+	data *DP __attribute__ ((aligned(16)));
+	DP = calloc(n, sizeof(data) *1);
 
 	cl_uint8 *stats __attribute__ ((aligned(16)));
 	stats = calloc(n, sizeof(cl_uint8));
 	
 	printf("global:%d, local:%d, (should be):\t%d groups\n", global, local, num_groups);
-	printf("structs size: %db, %db\n", sizeof(point), sizeof(Elliptic_Curve));
+	printf("structs size: %db, %db\n", sizeof(data), sizeof(Elliptic_Curve));
 	printf("sets:%d, total of %db needed, allocated _local: %db\n", n, n * sizeof(cl_uint4) *5 *4, allocated_local);
-	/*
-		struct point *d,		many ec_Q.x, y
-		const u8 *a,			many k[21]
-		__const struct point *b		one ec_G
-	*/
-	cl_mem	cl_P, cl_K, cl_G, ST;
-	cl_P = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR, n * sizeof(point), NULL, &res);				check_return(res);
-	cl_K = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR, n * sizeof(u8) *21, NULL, &res);				check_return(res);
-	cl_G = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR | CL_MEM_READ_ONLY,  1 * sizeof(point),    NULL, &res);	check_return(res);
-	ST   = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR | CL_MEM_WRITE_ONLY, n * sizeof(cl_uint8), NULL, &res);	check_return(res);
 
-	point G;
-	/*	Base point:
-		Gx: 010aff82b3ac72569ae645af3b527be133442131			divisor g = 32209245
-		Gy: 46b8ec1e6d71e5ecb549614887d57a287df573cc			divisor g = 972
-	*/
+	cl_mem	cl_DP, cl_K, cl_EC, DEBUG;
+	cl_DP = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR, n * sizeof(data), NULL, &res);				check_return(res);
+	cl_K  = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR, n * sizeof(u8) *21, NULL, &res);				check_return(res);
+	cl_EC = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR | CL_MEM_READ_ONLY,  1 * sizeof(Elliptic_Curve), NULL, &res);	check_return(res);
+	DEBUG = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR | CL_MEM_WRITE_ONLY, n * sizeof(cl_uint8), NULL, &res);	check_return(res);
+	
+	Elliptic_Curve EC;
+	/*	
+		Curve domain parameters, (test vectors)
+		-------------------------------------------------------------------------------------
+		p:	c1c627e1638fdc8e24299bb041e4e23af4bb5427		is prime
+		a:	c1c627e1638fdc8e24299bb041e4e23af4bb5424		divisor g = 62980
+		b:	877a6d84155a1de374b72d9f9d93b36bb563b2ab		divisor g = 227169643
+		Gx: 	010aff82b3ac72569ae645af3b527be133442131		divisor g = 32209245
+		Gy: 	46b8ec1e6d71e5ecb549614887d57a287df573cc		divisor g = 972			
+	*/	
 	u8 *t;
-	t = _x_to_u8_buffer("010aff82b3ac72569ae645af3b527be133442131");	memcpy(G.x, t, 20);
-	t = _x_to_u8_buffer("46b8ec1e6d71e5ecb549614887d57a287df573cc");	memcpy(G.y, t, 20);	
+	t = _x_to_u8_buffer("c1c627e1638fdc8e24299bb041e4e23af4bb5427");	memcpy(EC.p, t, 20);
+	t = _x_to_u8_buffer("c1c627e1638fdc8e24299bb041e4e23af4bb5424");	memcpy(EC.a, t, 20);
+	t = _x_to_u8_buffer("877a6d84155a1de374b72d9f9d93b36bb563b2ab");	memcpy(EC.b, t, 20);
+	t = _x_to_u8_buffer("010aff82b3ac72569ae645af3b527be133442131");	memcpy(EC.G.x, t, 20);
+	t = _x_to_u8_buffer("46b8ec1e6d71e5ecb549614887d57a287df573cc");	memcpy(EC.G.y, t, 20);
 	free(t);
 
-	res = clEnqueueWriteBuffer(cmd_queue, cl_G, CL_TRUE, 0, 1 * sizeof(point), &G, 0, NULL, NULL);	check_return(res);
+	res = clEnqueueWriteBuffer(cmd_queue, cl_EC, CL_TRUE, 0, 1 * sizeof(Elliptic_Curve), &EC, 0, NULL, NULL);	check_return(res);
 
-	res = clSetKernelArg(kernelobj, 0, sizeof(cl_mem), &cl_P);
-	res|= clSetKernelArg(kernelobj, 1, sizeof(point) * local *1, NULL);	//allocate space for __local in kernel (just this!) one * localsize
+	res = clSetKernelArg(kernelobj, 0, sizeof(cl_mem), &cl_DP);
+	res|= clSetKernelArg(kernelobj, 1, sizeof(data) * local *1, NULL);	//allocate space for __local in kernel (just this!) one * localsize
 	res|= clSetKernelArg(kernelobj, 2, sizeof(cl_mem), &cl_K);
-	res|= clSetKernelArg(kernelobj, 3, sizeof(cl_mem), &cl_G);
+	res|= clSetKernelArg(kernelobj, 3, sizeof(cl_mem), &cl_EC);
 	res|= clSetKernelArg(kernelobj, 4, sizeof(cl_uint8) * local *1, NULL);	//allocate space for __local in kernel (just this!) one * localsize
-	res|= clSetKernelArg(kernelobj, 5, sizeof(cl_mem), &ST);		//this used to debug kernel output
+	res|= clSetKernelArg(kernelobj, 5, sizeof(cl_mem), &DEBUG);		//this used to debug kernel output
 	check_return(res);
 
 	cl_event NDRangeEvent;
@@ -232,8 +240,8 @@ int main(int argc, char **argv)
 	
 	printf("Read back, Mapping buffer:\t%db\n", n * sizeof(point));
 
-	P = 	clEnqueueMapBuffer(cmd_queue, cl_P, CL_TRUE, CL_MAP_READ, 0, n * sizeof(point),    0, NULL, NULL, &res);	check_return(res);
-	stats =	clEnqueueMapBuffer(cmd_queue, ST,   CL_TRUE, CL_MAP_READ, 0, n * sizeof(cl_uint8), 0, NULL, NULL, &res);	check_return(res);
+	DP = 	clEnqueueMapBuffer(cmd_queue, cl_DP, CL_TRUE, CL_MAP_READ, 0, n * sizeof(data),     0, NULL, NULL, &res);	check_return(res);
+	stats =	clEnqueueMapBuffer(cmd_queue, DEBUG, CL_TRUE, CL_MAP_READ, 0, n * sizeof(cl_uint8), 0, NULL, NULL, &res);	check_return(res);
 	
 	/* using clEnqueueReadBuffer template */
 //	res = clEnqueueReadBuffer(cmd_queue, ST, CL_TRUE, 0, sets * sizeof(cl_uint8), stats, 0, NULL, NULL);			check_return(res);
@@ -256,17 +264,17 @@ int main(int argc, char **argv)
 			printf("%d \t", i);
 			printf("%u\t%u\t%u\t%u\t| %2u, %2u, %2u, %u\n", stats[i].s0, stats[i].s1, stats[i].s2, stats[i].s3, stats[i].s4, stats[i].s5, stats[i].s6, stats[i].s7);
 			
-			printf("%d %d\n", P[i].dig, P[i].c);
-			bn_print("", P[i].x, 20, 0);
-			bn_print(" ", P[i].y, 20, 1);
+			//printf("%d %d\n", P[i].dig, P[i].c);
+
+			bn_print("", DP[i].P.x, 20, 0); bn_print(" ", DP[i].P.y, 20, 1);
 		}
 	}
 
 	/* Release OpenCL stuff, free the rest */
-	clReleaseMemObject(cl_P);
+	clReleaseMemObject(cl_DP);
 	clReleaseMemObject(cl_K);
-	clReleaseMemObject(cl_G);
-	clReleaseMemObject(ST);
+	clReleaseMemObject(cl_EC);
+	clReleaseMemObject(DEBUG);
 	clReleaseKernel(kernelobj);
 	clReleaseProgram(pro);
 	clReleaseCommandQueue(cmd_queue);

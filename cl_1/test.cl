@@ -6,15 +6,17 @@
 typedef unsigned char u8;
 typedef unsigned int u32;
 
-//typedef cl_uchar u8;
-//typedef cl_uint u32;
-
 struct point{
 	u8 x[20];
 	u8 y[20];
-	u8 pad[3];
+};
+
+struct data{
+	struct point P;
 	u8 c;
-	u32 dig;
+	u8 dig;
+	u8 unused;		//makes 64b %16 == 0
+	u8 k[21];
 };
 
 struct Elliptic_Curve {
@@ -22,10 +24,10 @@ struct Elliptic_Curve {
 	u8 a[20];		//t[20]
 	u8 b[20];		//u[20]
 	struct point G;		//ppx[20], ppy[20]
+	u8 unused[8];
 };				//pad[3], u8 c, u32 dig
 
-int bn_is_zero(
-	__local const u8 *d, const u32 n){
+int bn_is_zero(	__local const u8 *d, const u32 n){
 	for(u8 i = 0; i < n; i++)
 		if (d[i] != 0) return 0;
 
@@ -39,6 +41,16 @@ void bn_zero(__local u8 *d, const u32 n){
 
 /* a _kernel user_memcpy sample */
 void bn_copy(__local u8 *d, const u8 *a, const u32 n){
+	for(u8 i = 0; i < n; i++) d[i] = a[i];
+}
+
+/* a _kernel user_memcpy sample, fills _local from _constant */
+void bn_copy_c2l(__local u8 *d, __constant const u8 *a, const u32 n){
+	for(u8 i = 0; i < n; i++) d[i] = a[i];
+}
+
+/* a _kernel user_memcpy sample, fills _local from _local */
+void bn_copy_l2l(__local u8 *d, __local const u8 *a, const u32 n){
 	for(u8 i = 0; i < n; i++) d[i] = a[i];
 }
 
@@ -116,7 +128,7 @@ void bn_mon_mul(__local u8 *d, __local const u8 *a, __local const u8 *b, __const
 	bn_copy(d, t, n);
 }
 
-void point_double(__local  struct point * restrict r, __constant struct point * restrict G)
+void point_double(__local  struct point *r, __constant struct Elliptic_Curve * restrict EC)
 {	
 	if(bn_is_zero(r->y, 20)){
 		bn_zero(r->x, 20), bn_zero(r->y, 20); return; }
@@ -130,62 +142,67 @@ struct Elliptic_Curve {
 	struct point G;		//ppx[20], ppy[20]
 };				//pad[3], u8 c, u32 dig  (1*3 + 1 + 4) -> CL_KERNEL_LOCAL_MEM_SIZE 108b
 */
-	lC.G = *r;
+	bn_copy_l2l(lC.G.x, r->x, 20);
+	//lC.G.x = r->x;
 	
 //	u8	s[20], t[20], 
 //		*px = pp.x, *py = pp.y;
 //		*rx = r->x, *ry = r->y;
 
 // t = px*px
-	bn_mon_mul(lC.a, lC.G.x, lC.G.x, 1, 20);//512
+	bn_mon_mul(lC.a, lC.G.x, lC.G.x, EC->p, 20);//512
 	
 // s = 2*px*px				bn_add(s, t, t, EC.p, 20);	//u32 dig, u8 c
 	if(bn_add_1(lC.p, lC.a, lC.a, 20))
-		bn_sub_1(lC.p, lC.p, 1, 20);
-	bn_reduce(lC.p, 1, 20);
+		bn_sub_1(lC.p, lC.p, EC->p, 20);
+	bn_reduce(lC.p, EC->p, 20);
 // s = 3*px*px				bn_add(s, s, t, EC.p, 20);
 	if(bn_add_1(lC.p, lC.p, lC.a, 20))
-		bn_sub_1(lC.p, lC.p, 1, 20);
-	bn_reduce(lC.p, 1, 20);
-// s = 3*px*px + a			bn_add(s, s, EC.a, EC.p, 20);	//const ec_a is needed here
-	if(bn_add_1(lC.p, lC.p, 3, 20)) 	//EC.a
-		bn_sub_1(lC.p, lC.p, 1, 20);
-	bn_reduce(lC.p, 1, 20);
+		bn_sub_1(lC.p, lC.p, EC->p, 20);
+	bn_reduce(lC.p, EC->p, 20);
+// s = 3*px*px + a			bn_add(s, s, EC.a, EC.p, 20);	//const ec_a is needed here, use u[20]
+	bn_copy_c2l(lC.b, EC->a, 20);		//lC.b = EC->a;
+	if(bn_add_1(lC.p, lC.p, lC.b, 20)) 	//EC.a
+		bn_sub_1(lC.p, lC.p, EC->p, 20);
+	bn_reduce(lC.p, EC->p, 20);
 // t = 2*py				bn_add(t, py, py, EC.p, 20);
 	if(bn_add_1(lC.a, lC.G.y, lC.G.y, 20))
-		bn_sub_1(lC.a, lC.a, 1, 20);
-	bn_reduce(lC.a, 1, 20);
+		bn_sub_1(lC.a, lC.a, EC->p, 20);
+	bn_reduce(lC.a, EC->p, 20);
 // s = (3*px*px+a)/(2*py)
-	bn_mon_mul(lC.p, lC.p, lC.a, 1, 20);	//512
+	bn_mon_mul(lC.p, lC.p, lC.a, EC->p, 20);	//512
 // rx = s*s
-	bn_mon_mul(r->x, lC.p, lC.p, 1, 20);	//512
-// t = 2*px				bn_add(t, px, px, EC.p, 20);
+	bn_mon_mul(r->x, lC.p, lC.p, EC->p, 20);	//512
+// t = 2*px				
+	//bn_add(t, px, px, EC.p, 20);
 	if(bn_add_1(lC.a, lC.G.x, lC.G.x, 20)) 
-		bn_sub_1(lC.a, lC.a, 1, 20);
-	bn_reduce(lC.a, 1, 20);	
+		bn_sub_1(lC.a, lC.a, EC->p, 20);
+	bn_reduce(lC.a, EC->p, 20);	
+	
 // rx = s*s - 2*px			bn_sub(rx, rx, t, EC.p, 20);
-	if(bn_sub_1(r->x, r->x, 2, 20)) 	//lC.a = const?!
-		bn_add_1(r->x, r->x, 1, 20);
+	if(bn_sub_1(r->x, r->x, EC->a, 20)) 	//lC.a = const?!
+		bn_add_1(r->x, r->x, lC.a, 20);
 // t = -(rx-px)				bn_sub(t, px, rx, EC.p, 20);
 	if(bn_sub_1(lC.a, lC.G.x, 2, 20))	//lC.G.x
-		bn_add_1(lC.a, lC.a, 1, 20);
+		bn_add_1(lC.a, lC.a, lC.b, 20);			//bn_add_1 type2
+
 // ry = -s*(rx-px)
-	bn_mon_mul(r->y, lC.p, lC.a, 1, 20);	//512
+	bn_mon_mul(r->y, lC.p, lC.a, EC->p, 20);	//512
 // ry = -s*(rx-px) - py			bn_sub(ry, ry, py, EC.p, 20);	//u32 dig, u8 c
 	if(bn_sub_1(r->y, r->y, 2, 20)) //lC.G.y
-		bn_add_1(r->y, r->y, 1, 20); 
+		bn_add_1(r->y, r->y, lC.b, 20); 		//bn_add_1 type2
 }	//out rx, ry
 
-void point_add(__local  struct point * restrict r, __constant struct point * restrict G)
+void point_add(__local  struct point * restrict r, __constant struct Elliptic_Curve * restrict EC)
 {}
 
 #define WORK_GROUP_SIZE 4	//preferred size
 __kernel __attribute__ ((reqd_work_group_size (WORK_GROUP_SIZE, 1, 1)))
 void point_mul(
-	__global struct point *P,		//to save output points
-	__local  struct point * restrict lP,	//a _local context, CL_KERNEL_LOCAL_MEM_SIZE query
+	__global struct data * restrict dP,		//to save output points
+	__local  struct data * restrict lP,		//a _local context, CL_KERNEL_LOCAL_MEM_SIZE query
 	__global u8 *k,				//integer, 160bit
-	__constant struct point * restrict G,	//generator
+	__constant struct Elliptic_Curve * restrict EC,
 	__local	 uint8 * restrict l8,		//to save debug output, CL_KERNEL_LOCAL_MEM_SIZE query
 	__global uint8 * restrict out )		//to save debug output
 {
@@ -194,19 +211,18 @@ void point_mul(
 	const int local_size =	get_local_size(0),	offset =	local_size * get_group_id(0);
 	const int stride5 =	lid5 + (offset *5);
 
-	__local struct point 
-		*p = lP + lid;
+	__local struct point *p = &lP[lid].P;
 	
-	/* ocl needs to initialize: zerofill sizeof(point) to 0 */
-	bn_zero(p, 48);
+	/* ocl needs to initialize: zerofill (sizeof(data) - k[21]) to 0 */
+	bn_zero(p, 40);
 
 	for(u8 i = 0; i < 21; i++)
 		for(u8 mask = 0x80; mask != 0; mask >>= 1){
-			point_double(p, G);
-			if((k[i] & mask) != 0) point_add(p, G);
+			point_double(p, EC);
+			if((dP->k[i] & mask) != 0) point_add(p, EC);
 		}	
 	
-	/* save debug output */	
+	/* save debug output */
 	out[offset + lid] =
 	/* we can use also	 l8[lid] =
 	   or			 out[gid] =
@@ -218,11 +234,11 @@ void point_mul(
 		offset,			stride5
 	};
 	
-	*p = *G;		//copy 48bytes _const to _local
-	bn_zero(p->pad, 8);	//zerofill struct padding
+	/* testing constant address space for consistency */
+	*p = EC->G;		//copy 40bytes _const to _local
 	
 	barrier(CLK_LOCAL_MEM_FENCE);
 	
 	/* Copy to output buffers, _global P[gid] = _local *p */
-	P[offset + lid] = *p;
+	dP[offset + lid].P = *p;
 }
