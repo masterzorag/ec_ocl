@@ -3,6 +3,10 @@
 	
 	# clang -S -emit-llvm -o test.ll -x cl test.cl
 	# gcc -o demo main.c -Wall -std=gnu99 -lOpenCL
+
+gcc -o demo main.c -Wall -std=gnu99 \
+	-I/opt/AMDAPPSDK-2.9-1/lib  \
+	-L/opt/AMDAPPSDK-2.9-1/lib/x86/libOpenCL.so -lrt -Wl,-rpath,/opt/AMDAPPSDK-2.9-1/lib/x86 -lOpenCL
 	
 	# ./demo test.cl point_mul
 	Check OpenCL environtment
@@ -77,8 +81,12 @@ typedef struct{
 	u8 a[20];
 	u8 b[20];
 	point G;
-	u8 unused[8];		//makes 108b %16 == 0
+	u8 unused[12];		//makes 112b %16 == 0
 } Elliptic_Curve;
+
+typedef struct{
+	u32 data[8];
+} debug;
 
 typedef char s8;
 typedef unsigned long long int u64;
@@ -118,6 +126,25 @@ void bn_print(const char *name, const u8 *a, const short n, const short b){
 
 	if(b == 1) printf("\n");
 }
+
+static const u8 inv256[0x80] = {
+	0x01, 0xab, 0xcd, 0xb7, 0x39, 0xa3, 0xc5, 0xef,
+	0xf1, 0x1b, 0x3d, 0xa7, 0x29, 0x13, 0x35, 0xdf,
+	0xe1, 0x8b, 0xad, 0x97, 0x19, 0x83, 0xa5, 0xcf,
+	0xd1, 0xfb, 0x1d, 0x87, 0x09, 0xf3, 0x15, 0xbf,
+	0xc1, 0x6b, 0x8d, 0x77, 0xf9, 0x63, 0x85, 0xaf,
+	0xb1, 0xdb, 0xfd, 0x67, 0xe9, 0xd3, 0xf5, 0x9f,
+	0xa1, 0x4b, 0x6d, 0x57, 0xd9, 0x43, 0x65, 0x8f,
+	0x91, 0xbb, 0xdd, 0x47, 0xc9, 0xb3, 0xd5, 0x7f,
+	0x81, 0x2b, 0x4d, 0x37, 0xb9, 0x23, 0x45, 0x6f,
+	0x71, 0x9b, 0xbd, 0x27, 0xa9, 0x93, 0xb5, 0x5f,
+	0x61, 0x0b, 0x2d, 0x17, 0x99, 0x03, 0x25, 0x4f,
+	0x51, 0x7b, 0x9d, 0x07, 0x89, 0x73, 0x95, 0x3f,
+	0x41, 0xeb, 0x0d, 0xf7, 0x79, 0xe3, 0x05, 0x2f,
+	0x31, 0x5b, 0x7d, 0xe7, 0x69, 0x53, 0x75, 0x1f,
+	0x21, 0xcb, 0xed, 0xd7, 0x59, 0xc3, 0xe5, 0x0f,
+	0x11, 0x3b, 0x5d, 0xc7, 0x49, 0x33, 0x55, 0xff,
+};
 
 int main(int argc, char **argv)
 {
@@ -185,24 +212,24 @@ int main(int argc, char **argv)
 	global = n;
 	
 	int	num_groups=		global / local,
-		allocated_local=	//sizeof(cl_uint4) * local *5 + 
-					sizeof(cl_uint8) * local;
+		allocated_local=	sizeof(data) * local + 
+					sizeof(debug) * local;
 
 	data *DP __attribute__ ((aligned(16)));
 	DP = calloc(n, sizeof(data) *1);
 
-	cl_uint8 *stats __attribute__ ((aligned(16)));
-	stats = calloc(n, sizeof(cl_uint8));
+	debug *dbg __attribute__ ((aligned(16)));
+	dbg = calloc(n, sizeof(debug));
 	
 	printf("global:%d, local:%d, (should be):\t%d groups\n", global, local, num_groups);
-	printf("structs size: %db, %db\n", sizeof(data), sizeof(Elliptic_Curve));
+	printf("structs size: %db, %db, %db\n", sizeof(data), sizeof(Elliptic_Curve), sizeof(inv256));
 	printf("sets:%d, total of %db needed, allocated _local: %db\n", n, n * sizeof(cl_uint4) *5 *4, allocated_local);
 
-	cl_mem	cl_DP, cl_K, cl_EC, DEBUG;
-	cl_DP = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR, n * sizeof(data), NULL, &res);				check_return(res);
-	cl_K  = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR, n * sizeof(u8) *21, NULL, &res);				check_return(res);
-	cl_EC = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR | CL_MEM_READ_ONLY,  1 * sizeof(Elliptic_Curve), NULL, &res);	check_return(res);
-	DEBUG = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR | CL_MEM_WRITE_ONLY, n * sizeof(cl_uint8), NULL, &res);	check_return(res);
+	cl_mem	cl_DP, cl_EC, cl_INV, DEBUG;
+	cl_DP = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR, n * sizeof(data), NULL, &res);					check_return(res);				
+	cl_EC = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR | CL_MEM_READ_ONLY,  1 * sizeof(Elliptic_Curve), NULL, &res);	check_return(res);	//_constant address space
+	cl_INV= clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR | CL_MEM_READ_ONLY,  1 * sizeof(u8) * 0x80, NULL, &res);		check_return(res);
+	DEBUG = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR | CL_MEM_WRITE_ONLY, n * sizeof(debug), NULL, &res);		check_return(res);
 	
 	Elliptic_Curve EC;
 	/*	
@@ -222,29 +249,33 @@ int main(int argc, char **argv)
 	t = _x_to_u8_buffer("46b8ec1e6d71e5ecb549614887d57a287df573cc");	memcpy(EC.G.y, t, 20);
 	free(t);
 
-	res = clEnqueueWriteBuffer(cmd_queue, cl_EC, CL_TRUE, 0, 1 * sizeof(Elliptic_Curve), &EC, 0, NULL, NULL);	check_return(res);
+	res = clEnqueueWriteBuffer(cmd_queue, cl_EC,  CL_TRUE, 0, 1 * sizeof(Elliptic_Curve), &EC, 0, NULL, NULL);	check_return(res);
+	res = clEnqueueWriteBuffer(cmd_queue, cl_INV, CL_TRUE, 0, 1 * sizeof(u8) * 0x80, &inv256, 0, NULL, NULL);	check_return(res);
 
-	res = clSetKernelArg(kernelobj, 0, sizeof(cl_mem), &cl_DP);
+
+	res = clSetKernelArg(kernelobj, 0, sizeof(cl_mem), &cl_DP);		/* output buffer */
 	res|= clSetKernelArg(kernelobj, 1, sizeof(data) * local *1, NULL);	//allocate space for __local in kernel (just this!) one * localsize
-	res|= clSetKernelArg(kernelobj, 2, sizeof(cl_mem), &cl_K);
-	res|= clSetKernelArg(kernelobj, 3, sizeof(cl_mem), &cl_EC);
-	res|= clSetKernelArg(kernelobj, 4, sizeof(cl_uint8) * local *1, NULL);	//allocate space for __local in kernel (just this!) one * localsize
+	res|= clSetKernelArg(kernelobj, 2, sizeof(cl_mem), &cl_EC);
+	res|= clSetKernelArg(kernelobj, 3, sizeof(cl_mem), &cl_INV);	
+	res|= clSetKernelArg(kernelobj, 4, sizeof(debug) * local *1, NULL);	//allocate space for __local in kernel (just this!) one * localsize
 	res|= clSetKernelArg(kernelobj, 5, sizeof(cl_mem), &DEBUG);		//this used to debug kernel output
 	check_return(res);
 
+	printf("n:%d, total of %db needed, allocated _local: %db\n", n, n * sizeof(debug), allocated_local);	
+	
 	cl_event NDRangeEvent;
 	cl_ulong start, end;
 	
 	/* Execute NDrange */	
 	res = clEnqueueNDRangeKernel(cmd_queue, kernelobj, 1, NULL, &global, &local, 0, NULL, &NDRangeEvent);		check_return(res);
 	
-	printf("Read back, Mapping buffer:\t%db\n", n * sizeof(point));
+	printf("Read back, Mapping buffer:\t%db\n", n * sizeof(data));
 
-	DP = 	clEnqueueMapBuffer(cmd_queue, cl_DP, CL_TRUE, CL_MAP_READ, 0, n * sizeof(data),     0, NULL, NULL, &res);	check_return(res);
-	stats =	clEnqueueMapBuffer(cmd_queue, DEBUG, CL_TRUE, CL_MAP_READ, 0, n * sizeof(cl_uint8), 0, NULL, NULL, &res);	check_return(res);
+	DP = clEnqueueMapBuffer(cmd_queue, cl_DP, CL_TRUE, CL_MAP_READ, 0, n * sizeof(data),  0, NULL, NULL, &res);	check_return(res);
+	dbg =clEnqueueMapBuffer(cmd_queue, DEBUG, CL_TRUE, CL_MAP_READ, 0, n * sizeof(debug), 0, NULL, NULL, &res);	check_return(res);
 	
 	/* using clEnqueueReadBuffer template */
-//	res = clEnqueueReadBuffer(cmd_queue, ST, CL_TRUE, 0, sets * sizeof(cl_uint8), stats, 0, NULL, NULL);			check_return(res);
+//	res = clEnqueueReadBuffer(cmd_queue, ST, CL_TRUE, 0, sets * sizeof(cl_uint8), dbg, 0, NULL, NULL);			check_return(res);
 		
 	clFlush(cmd_queue);
 	clFinish(cmd_queue);
@@ -262,17 +293,19 @@ int main(int argc, char **argv)
 			i %1 == 0
 		) {
 			printf("%d \t", i);
-			printf("%u\t%u\t%u\t%u\t| %2u, %2u, %2u, %u\n", stats[i].s0, stats[i].s1, stats[i].s2, stats[i].s3, stats[i].s4, stats[i].s5, stats[i].s6, stats[i].s7);
-			
+			//printf("%u\t%u\t%u\t%u\t| %2u, %2u, %2u, %u\n", *p, *(p +1), *(p +2), *(p +3), *(p +4), *(p +5), *(p +6), *(p +7));
+			printf("%u\t%u\t%u\t%u\t| %2u, %2u, %2u, %u\n", 
+				dbg[i].data[0], dbg[i].data[1], dbg[i].data[2], dbg[i].data[3],
+				dbg[i].data[4], dbg[i].data[5], dbg[i].data[6], dbg[i].data[7]);
+				
 			//printf("%d %d\n", P[i].dig, P[i].c);
-
 			bn_print("", DP[i].P.x, 20, 0); bn_print(" ", DP[i].P.y, 20, 1);
 		}
 	}
 
 	/* Release OpenCL stuff, free the rest */
 	clReleaseMemObject(cl_DP);
-	clReleaseMemObject(cl_K);
+	clReleaseMemObject(cl_INV);
 	clReleaseMemObject(cl_EC);
 	clReleaseMemObject(DEBUG);
 	clReleaseKernel(kernelobj);
@@ -281,6 +314,7 @@ int main(int argc, char **argv)
 	clReleaseContext(context);
 	
 	free(kernel_source);
+	
 	puts("Done!");
 	return 0;
 }
