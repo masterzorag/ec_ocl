@@ -1,0 +1,99 @@
+Number of platforms                               1
+  Platform Name                                   AMD Accelerated Parallel Processing
+  Platform Vendor                                 Advanced Micro Devices, Inc.
+  Platform Version                                OpenCL 1.2 AMD-APP (1445.5)
+  Platform Profile                                FULL_PROFILE
+  Platform Extensions                             cl_khr_icd cl_amd_event_callback cl_amd_offline_devices cl_amd_hsa 
+  Platform Extensions function suffix             AMD
+
+  Platform Name                                   AMD Accelerated Parallel Processing
+Number of devices                                 1
+  Device Name                                     AMD E-350 Processor
+  Device Vendor                                   AuthenticAMD
+  Device Version                                  OpenCL 1.2 AMD-APP (1445.5)
+  Driver Version                                  1445.5 (sse2)
+  Device OpenCL C Version                         OpenCL C 1.2 
+  Device Type                                     CPU
+  Device Profile                                  FULL_PROFILE
+  Device Board Name (AMD)                         
+  Device Topology (AMD)                           (n/a)
+  Max compute units                               2
+  Max clock frequency                             800MHz
+  Device Partition                                (core, cl_ext_device_fission)
+    Max number of sub-devices                     2
+    Supported partition types                     equally, by counts, by affinity domain
+    Supported affinity domains                    L1 cache, L2 cache, next partitionable
+    Supported partition types (ext)               equally, by counts, by affinity domain
+    Supported affinity domains (ext)              L2 cache, L1 cache, next fissionable
+  Max work item dimensions                        3
+    Max work item size[0]                         1024
+    Max work item size[1]                         1024
+    Max work item size[2]                         1024
+  Max work group size                             1024
+  Preferred work group size multiple              1
+  Preferred / native vector sizes                 
+    char                                                16 / 16      
+    short                                                8 / 8       
+    int                                                  4 / 4       
+    long                                                 2 / 2       
+    half                                                 2 / 2        (n/a)
+    float                                                4 / 4       
+    double                                               2 / 2        (cl_khr_fp64)
+  Half-precision   Floating-point support         (n/a)
+  Single-precision Floating-point support        
+    Denormals                                     Yes
+    Infinity and NANs                             Yes
+    Round to nearest                              Yes
+    Round to zero                                 Yes
+    Round to infinity                             Yes
+    IEEE754-2008 fused multiply-add               Yes
+    Correctly-rounded divide and sqrt operations  Yes
+    Support is emulated in software               No
+  Double-precision Floating-point support         (cl_khr_fp64)
+    Denormals                                     Yes
+    Infinity and NANs                             Yes
+    Round to nearest                              Yes
+    Round to zero                                 Yes
+    Round to infinity                             Yes
+    IEEE754-2008 fused multiply-add               Yes
+    Correctly-rounded divide and sqrt operations  No
+    Support is emulated in software               No
+  Address bits                                    32, Little-Endian
+  Global memory size                              3688493056 ( 3.435GB)
+  Error Correction support                        No
+  Max memory allocation                           1073741824 (  1024MB)
+  Unified memory for Host and Device              Yes
+  Minimum alignment for any data type             128 bytes
+  Alignment of base address                       1024 bits (128 bytes)
+  Global Memory cache type                        Read/Write
+  Global Memory cache size                        32768 (    32KB)
+  Global Memory cache line                        64 bytes
+  Image support                                   Yes
+    Max number of samplers per kernel             16
+    Max 1D image size                             65536 pixels
+    Max 1D or 2D image array size                 2048 images
+    Max 2D image size                             8192x8192 pixels
+    Max 3D image size                             2048x2048x2048 pixels
+    Max number of read image args                 128
+    Max number of write image args                8
+  Local memory type                               Global
+  Local memory size                               32768 (    32KB)
+  Max constant buffer size                        65536 (    64KB)
+  Max number of constant args                     8
+  Max size of kernel argument                     4096 (     4KB)
+  Queue properties                                
+    Out-of-order execution                        No
+    Profiling                                     Yes
+  Profiling timer resolution                      1ns
+  Profiling timer offset since Epoch (AMD)        1419604967556410005ns (Fri Dec 26 15:42:47 2014)
+  Execution capabilities                          
+    Run OpenCL kernels                            Yes
+    Run native kernels                            Yes
+    SPIR versions                                 1.2
+  Prefer user sync for interops                   Yes
+  printf() buffer size                            65536 (    64KB)
+  Device Built-in kernels                         
+  Device Available                                Yes
+  Compiler Available                              Yes
+  Linker Available                                No
+  Device Extensions                               cl_khr_fp64 cl_amd_fp64 cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_3d_image_writes cl_khr_byte_addressable_store cl_khr_gl_sharing cl_ext_device_fission cl_amd_device_attribute_query cl_amd_vec3 cl_amd_printf cl_amd_media_ops cl_amd_media_ops2 cl_amd_popcnt cl_khr_spir cl_amd_svm cl_khr_gl_event 
