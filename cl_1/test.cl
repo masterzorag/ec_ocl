@@ -1,5 +1,5 @@
 /* Header to make Clang compatible with OpenCL */
-#define __global __attribute__((address_space(1)))
+//#define __global __attribute__((address_space(1)))
 
 //int get_global_id(int index);
 
@@ -24,7 +24,7 @@ struct Elliptic_Curve {
 	u8 a[20];		//t[20]
 	u8 b[20];		//u[20]
 	struct point G;		//ppx[20], ppy[20]
-	u8 unused[8];
+	u8 unused[12];
 };				//pad[3], u8 c, u32 dig
 
 int bn_is_zero(	__local const u8 *d, const u32 n){
@@ -201,10 +201,10 @@ __kernel __attribute__ ((reqd_work_group_size (WORK_GROUP_SIZE, 1, 1)))
 void point_mul(
 	__global struct data * restrict dP,		//to save output points
 	__local  struct data * restrict lP,		//a _local context, CL_KERNEL_LOCAL_MEM_SIZE query
-	__global u8 *k,				//integer, 160bit
 	__constant struct Elliptic_Curve * restrict EC,
+	__constant  u8 * restrict inv256,
 	__local	 uint8 * restrict l8,		//to save debug output, CL_KERNEL_LOCAL_MEM_SIZE query
-	__global uint8 * restrict out )		//to save debug output
+	__global uint8 * out )		//to save debug output
 {
 	const int gid =		get_global_id(0),	lid =		get_local_id(0);
 	const int gid5 =	gid *5,			lid5 =		lid *5;
