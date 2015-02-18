@@ -16,8 +16,8 @@ typedef unsigned int u32;
 #define LEN 20		// fix bitlen / sizeof(u8)
 
 struct data{		// 176b
-	u8 x[20];
-	u8 y[20];
+	u8 rx[20];
+	u8 ry[20];
 				
 	u8 s[20];	//
 	u8 t[20];	//16
@@ -38,18 +38,18 @@ __attribute__((aligned(16)));
 	186 % 16 = 10 (!= 0, so:
 	176 * 176b = 30976b needed in a wg
 	32768 - 30976 = 1792b unused 
-*/
 
 struct point{
 	u8 x[20];
 	u8 y[20];
 };
-
+*/
 struct Elliptic_Curve{
 	u8 p[20];
 	u8 a[20];
 	u8 b[20];
-	struct point G;		//use Gx, Gy instead
+	u8 Gx[20];
+	u8 Gy[20];	
 	u8 U[20], V[20];	//per_curve_inv constants
 	u32 pad;
 }
@@ -190,12 +190,12 @@ void point_double(
 	__constant struct Elliptic_Curve *EC,
 	__constant const u8 *inv256 )
 {	
-	if(bn_is_zero(r->y)){
-		bn_zero(r->x), bn_zero(r->y);	return;
+	if(bn_is_zero(r->ry)){
+		bn_zero(r->rx), bn_zero(r->ry);	return;
 	}
 
 // t = px*px
-	bn_mon_mul(r->t, r->x, r->x, EC->p, inv256, r->d);	// +aux
+	bn_mon_mul(r->t, r->rx, r->rx, EC->p, inv256, r->d);	// +aux
 // s = 2*px*px
 	bn_add(r->s, r->t, r->t, EC->p, 0);			// +dig, c
 // s = 3*px*px
@@ -204,27 +204,27 @@ void point_double(
 	//bn_copy(r->t, EC->a);				//const ec_a is needed here, use (tu)
 	bn_add(r->s, r->s, EC->a, EC->p, 0);
 // t = 2*py
-	bn_add(r->t, r->y, r->y, EC->p, 0);	
+	bn_add(r->t, r->ry, r->ry, EC->p, 0);	
 // t = 1/(2*py)
 	bn_copy(r->u, r->t);
 	bn_mon_inv(r->t, r->u, EC->p, inv256, EC->U, EC->V, r->v, r->d);	// +U, V, (v)	
 // s = (3*px*px+a)/(2*py)
 	bn_mon_mul(r->s, r->s, r->t, EC->p, inv256, r->d);
 // rx = s*s							
-	bn_copy(r->u, r->x);				// backup old rx now ! u = rx
-	bn_mon_mul(r->x, r->s, r->s, EC->p, inv256, r->d);	// +aux
+	bn_copy(r->u, r->rx);				// backup old rx now ! u = rx
+	bn_mon_mul(r->rx, r->s, r->s, EC->p, inv256, r->d);	// +aux
 // t = 2*px							reuse backed up value: u = rx
 	bn_add(r->t, r->u, r->u, EC->p, 0);
 // rx = s*s - 2*px
-	bn_sub(r->x, r->x, r->t, EC->p);		//r->x =
+	bn_sub(r->rx, r->rx, r->t, EC->p);		//r->x =
 	
 // t = -(rx-px)						reuse backed up value: u = rx
-	bn_sub(r->t, r->u, r->x, EC->p);
+	bn_sub(r->t, r->u, r->rx, EC->p);
 // ry = -s*(rx-px)
-	bn_copy(r->u, r->y);				// backup old ry now ! u = ry
-	bn_mon_mul(r->y, r->s, r->t, EC->p, inv256, r->d);	// +aux
+	bn_copy(r->u, r->ry);				// backup old ry now ! u = ry
+	bn_mon_mul(r->ry, r->s, r->t, EC->p, inv256, r->d);	// +aux
 // ry = -s*(rx-px) - py					reuse backed up value: u = ry
-	bn_sub(r->y, r->y, r->u, EC->p);		//r->y =
+	bn_sub(r->ry, r->ry, r->u, EC->p);		//r->y =
 	
 }
 
@@ -233,28 +233,28 @@ void point_add(
 	__constant struct Elliptic_Curve *EC,
 	__constant const u8 *inv256 )
 {
-	if(bn_is_zero(r->x)
-	&& bn_is_zero(r->y)){			//*r = *q;		
+	if(bn_is_zero(r->rx)
+	&& bn_is_zero(r->ry)){			//*r = *q;		
 //		bn_copy(r->x, EC->G.x);		// bn_copy(ry, qy);
-		for(u8 i = 0; i < LEN; i++) r->x[i] = EC->G.x[i];
+		for(u8 i = 0; i < LEN; i++) r->rx[i] = EC->Gx[i];
 //		bn_copy(r->y, EC->G.y);
-		for(u8 i = 0; i < LEN; i++) r->y[i] = EC->G.y[i];
+		for(u8 i = 0; i < LEN; i++) r->ry[i] = EC->Gy[i];
 		return; }
 /*
-	if(bn_is_zero(EC->G.x)			//point_is_zero(q) ??, G != 0 !!
-	&& bn_is_zero(EC->G.y)) return;
+	if(bn_is_zero(EC->Gx)			//point_is_zero(q) ??, G != 0 !!
+	&& bn_is_zero(EC->Gy)) return;
 */			
 // u = qx-px
-	bn_sub(r->u, EC->G.x, r->x, EC->p);		//u32 dig, u8 c 
+	bn_sub(r->u, EC->Gx, r->rx, EC->p);		//u32 dig, u8 c 
 
 	if(bn_is_zero(r->u)){
 	// u = qy-py
-		bn_sub(r->u, EC->G.y, r->y, EC->p);	// subs const qy !!
+		bn_sub(r->u, EC->Gy, r->ry, EC->p);	// subs const qy !!
 		
 		if(bn_is_zero(r->u)){
 			point_double(r, EC, inv256);
 		}else{
-			bn_zero(r->x); bn_zero(r->y); }
+			bn_zero(r->rx); bn_zero(r->ry); }
 
 		return;
 	}
@@ -262,33 +262,34 @@ void point_add(
 // t = 1/(qx-px)
 	bn_mon_inv(r->t, r->u, EC->p, inv256, EC->U, EC->V, r->v, r->d);	// +U, V, (v)
 // u = qy-py
-	bn_sub(r->u, EC->G.y, r->y, EC->p);		// subs const qy !!
+	bn_sub(r->u, EC->Gy, r->ry, EC->p);		// subs const qy !!
 	
 // s = (qy-py)/(qx-px)
 	bn_mon_mul(r->s, r->t, r->u, EC->p, inv256, r->d);		// +aux
 	
 // rx = s*s
-	bn_copy(r->u, r->x);				// backup old rx now ! u = rx
-	bn_mon_mul(r->x, r->s, r->s, EC->p, inv256, r->d);	// +aux
+	bn_copy(r->u, r->rx);				// backup old rx now ! u = rx
+	bn_mon_mul(r->rx, r->s, r->s, EC->p, inv256, r->d);	// +aux
 
 // t = px+qx
-	bn_add(r->t, r->u, EC->G.x, EC->p, 0);		// adds const qx !!
+	bn_add(r->t, r->u, EC->Gx, EC->p, 0);		// adds const qx !!
 // rx = s*s - (px+qx)
-	bn_sub(r->x, r->x, r->t, EC->p);
+	bn_sub(r->rx, r->rx, r->t, EC->p);
 
 // t = -(rx-px)						reuse backed up value: u = rx
-	bn_sub(r->t, r->u, r->x, EC->p);
+	bn_sub(r->t, r->u, r->rx, EC->p);
 	
 // ry = -s*(rx-px)
-	bn_copy(r->u, r->y);				// backup old ry now ! u = ry
-	bn_mon_mul(r->y, r->s, r->t, EC->p, inv256, r->d);	// +aux
+	bn_copy(r->u, r->ry);				// backup old ry now ! u = ry
+	bn_mon_mul(r->ry, r->s, r->t, EC->p, inv256, r->d);	// +aux
 	
 // ry = -s*(rx-px) - py					reuse backed up value: u = ry
-	bn_sub(r->y, r->y, r->u, EC->p);
+	bn_sub(r->ry, r->ry, r->u, EC->p);
 }
 
 #define WORK_GROUP_SIZE 4	// preferred size
-__kernel __attribute__((reqd_work_group_size (WORK_GROUP_SIZE, 1, 1)))
+__kernel 
+//__attribute__((reqd_work_group_size (WORK_GROUP_SIZE, 1, 1)))
 void point_mul(
 	__global struct data *dP,	// io data
 	__local struct data *lP,	// a _local data, CL_KERNEL_LOCAL_MEM_SIZE query
@@ -299,7 +300,7 @@ void point_mul(
 {
 	const int gid =		get_global_id(0),	lid =		get_local_id(0);
 	const int local_size =	get_local_size(0),	offset =	local_size * get_group_id(0);
-	const int stride5 =	(lid + offset) *5;
+	const int stride5 =	(offset + lid) *5;
 
 	__local struct data *p = &lP[lid];
 	
@@ -307,7 +308,7 @@ void point_mul(
 	barrier(CLK_LOCAL_MEM_FENCE);
 
 	/* clean points */
-	bn_zero(p->x), bn_zero(p->y);
+	bn_zero(p->rx), bn_zero(p->ry);
 	
 	//lP[lid] = dP[offset + lid];
 //	*p->k = dP[offset + lid].k;
@@ -319,39 +320,30 @@ void point_mul(
 			if((p->k[i] & mask) != 0) point_add(p, EC, inv256);	//579.00 ms
 		}
 			
-	/* 	save debug output, we can use also:
-		dbg[gid], or directly dbg[offset + lid]
-	*/
-	l8[lid].data[0] = gid;			l8[lid].data[1] = lid;
-	l8[lid].data[2] = get_local_size(0);	l8[lid].data[3] = get_global_size(0);
-	l8[lid].data[4] = get_num_groups(0);	l8[lid].data[5] = get_group_id(0);
-	l8[lid].data[6] = offset;		l8[lid].data[7] = stride5;	
-	
-	// testing constant address space for consistency //
-	//*p = EC->G;		//all workiterm exports generator, copy 40bytes _const to _local 
-	//p->x[10] = inv256[120];
-	
-	lP[lid].pad[0] = gid;			lP[lid].pad[1] = lid;
-	lP[lid].pad[2] = get_local_size(0);	lP[lid].pad[3] = get_global_size(0);
-	lP[lid].pad[4] = get_num_groups(0);	lP[lid].pad[5] = get_group_id(0);
+	// save debug output:	
+	lP[lid].pad[0] = gid;			lP[lid].pad[1] = get_global_size(0);
+	lP[lid].pad[2] = get_local_size(0);	lP[lid].pad[3] = get_group_id(0);
+	lP[lid].pad[4] = get_num_groups(0);	lP[lid].pad[5] = get_local_id(0);
 	lP[lid].pad[6] = offset;		lP[lid].pad[7] = stride5;
 
+	// testing constant address space for consistency //
+//	*p = EC->G;		//all workiterm exports generator, copy 40bytes _const to _local 
+//	p->rx[10] = inv256[120];
 //	lP[lid].x[10] = inv256[120];
 //	lP[lid].k[1] = inv256[120];
 /*
-	bn_zero(p->x);
-	bn_zero(p->y);
+	bn_zero(p->rx), bn_zero(p->ry);
 */	
 	barrier(CLK_LOCAL_MEM_FENCE);
 		
 	/* Copy to output buffers, _global P[gid] = _local *p */
 
 /*	bn_copy(dP[offset + lid].x, lP[lid].x);		//bn_copy(dP[offset + lid].x, &lP[lid]);
-//	dP[offset + lid].x = p->x;
+//	dP[offset + lid].x = p->rx;
 	bn_copy(dP[offset + lid].y, lP[lid].y);
 */	
-	bn_copy(dP[offset + lid].x, p->x);
-	bn_copy(dP[offset + lid].y, p->y);
+	bn_copy(dP[offset + lid].rx, p->rx);
+	bn_copy(dP[offset + lid].ry, p->ry);
 	bn_copy(dP[offset + lid].pad, p->pad);	// save debug NDRange variables
 //	dP[offset + lid] = lP[lid];		// or copy back whole datatype!
 	

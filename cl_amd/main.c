@@ -71,15 +71,9 @@ typedef cl_uint u32;
 
 #include "cl_util.h"
 
-typedef struct{
-	u8 x[20];
-	u8 y[20];
-} point;
-
-
 typedef struct{		// 176b
-	u8 x[20];
-	u8 y[20];
+	u8 rx[20];
+	u8 ry[20];
 				
 	u8 s[20];	//
 	u8 t[20];	//16
@@ -90,7 +84,7 @@ typedef struct{		// 176b
 	u8 d[20];	//+ mul
 	u8 k[21];
 	u8 c;		//+ all
-	u8 pad[8];	//we can store NDRange debug
+	u8 pad[8];	//we store NDRange info
 	u32 dig;	//+ all
 }
 __attribute__((aligned(16))) data;	
@@ -114,7 +108,7 @@ typedef struct{
 	u8 p[20];
 	u8 a[20];
 	u8 b[20];
-	point G;
+	u8 Gx[20], Gy[20];
 	u8 U[20], V[20];		//per_curve_inv constants
 	u32 pad;
 } __attribute__((aligned(16))) Elliptic_Curve;	//144b
@@ -256,7 +250,7 @@ int main(int argc, char **argv){
 	debug *dbg __attribute__ ((aligned(16)));
 	dbg = calloc(n, sizeof(debug));
 	
-	printf("global:%d, local:%d, (should be):\t%d groups\n", global, local, num_groups);
+	printf("global:%d, local:%d, (should be):%d groups\n", global, local, num_groups);
 	printf("structs size: %db, %db, %db\n", sizeof(data), sizeof(Elliptic_Curve), sizeof(inv256));
 	printf("sets:%d, total of %db needed, allocated _local: %db\n", n, n * sizeof(cl_uint4) *5 *4, allocated_local);
 
@@ -295,8 +289,8 @@ int main(int argc, char **argv){
 	t = _x_to_u8_buffer("c1c627e1638fdc8e24299bb041e4e23af4bb5427");	memcpy(EC.p, t, 20);
 	t = _x_to_u8_buffer("07189f858e3f723890a66ec1079388ebd2ed509c");	memcpy(EC.a, t, 20);
 	t = _x_to_u8_buffer("6043379beb0dade6eed1e9d6de64f4a0c50639d4");	memcpy(EC.b, t, 20);
-	t = _x_to_u8_buffer("5ef84aacf4f0ea6752f572d0741f40049f354dca");	memcpy(EC.G.x, t, 20);
-	t = _x_to_u8_buffer("418c695435af6b3d4d7cbb72967395016ef67239");	memcpy(EC.G.y, t, 20);
+	t = _x_to_u8_buffer("5ef84aacf4f0ea6752f572d0741f40049f354dca");	memcpy(EC.Gx, t, 20);
+	t = _x_to_u8_buffer("418c695435af6b3d4d7cbb72967395016ef67239");	memcpy(EC.Gy, t, 20);
 	
 	t = _x_to_u8_buffer("c1c627e1638fdc8e24299bb041e4e23af4bb5425");	memcpy(EC.U, t, 20);
 	t = _x_to_u8_buffer("3e39d81e9c702371dbd6644fbe1b1dc50b44abd9");	memcpy(EC.V, t, 20);
@@ -311,7 +305,7 @@ int main(int argc, char **argv){
 //d	for(u8 i = 0; i < n; i++) bn_print("", DP[i].k, 21, 1);
 
 	/* we can alter just a byte into a chosen k to verify that we'll get a different point! */
-	DP[2].k[2] = 0x09;
+	//DP[2].k[2] = 0x09;
 	
 //no	res = clEnqueueWriteBuffer(cmd_queue, cl_DP,  CL_TRUE, 0, n * sizeof(data), &DP, 0, NULL, NULL);	check_return(res);
 
@@ -333,6 +327,7 @@ int main(int argc, char **argv){
 	
 	/* Execute NDrange */	
 	res = clEnqueueNDRangeKernel(cmd_queue, kernelobj, 1, NULL, &global, &local, 0, NULL, &NDRangeEvent);		check_return(res);
+//	res = clEnqueueNDRangeKernel(cmd_queue, kernelobj, 1, NULL, &global, NULL, 0, NULL, &NDRangeEvent);		check_return(res);
 	
 	printf("Read back, Mapping buffer:\t%db\n", n * sizeof(data));
 
@@ -350,25 +345,28 @@ int main(int argc, char **argv){
 	res|= clGetEventProfilingInfo(NDRangeEvent, CL_PROFILING_COMMAND_END,   sizeof(cl_ulong), &end,   NULL);
 	check_return(res);
 	printf("kernel execution time:\t\t%.2f ms\n", (float) ((end - start) /1000000));			//relative to NDRange call
-	//printf("number of computes/sec:\t%.2f\n", (float) global *1000000 /((end - start)));
+	printf("number of computes/sec:\t%.2f\n", (float) global *1000000 /((end - start)));
 
+	
 	printf("i,\tgid\tlid0\tlsize0\tgid0/lsz0,\tgsz0,\tn_gr0,\tlid5,\toffset\n");
-	for(int i = 0; i < n; i++) {
-	//	if(i %local == 0) {
+	for(int i = 0; i < n; i++) {		
+//		if(i %local == 0) {
 			printf("%d \t", i);
 			//printf("%u\t%u\t%u\t%u\t| %2u, %2u, %2u, %u\n", *p, *(p +1), *(p +2), *(p +3), *(p +4), *(p +5), *(p +6), *(p +7));
+			
+			/* silence this doubled debug info
 			printf("%u\t%u\t%u\t%u\t| %2u, %2u, %2u, %u\n", 
 				dbg[i].data[0], dbg[i].data[1], dbg[i].data[2], dbg[i].data[3],
 				dbg[i].data[4], dbg[i].data[5], dbg[i].data[6], dbg[i].data[7]);
-				
+			*/	
 			//printf("%d %d\n", P[i].dig, P[i].c);
 			bn_print("", DP[i].k, 21, 1);
-			bn_print("", DP[i].x, 20, 0); bn_print(" ", DP[i].y, 20, 1);
+			bn_print("", DP[i].rx, 20, 0); bn_print(" ", DP[i].ry, 20, 1);
 			
-			printf("%u %u %u %u %u %u %u %u\n", 
+			printf("%u(/%u) = %u*%u(/%u) +%u, offset:%u, stride:%u\n", 
 				DP[i].pad[0], DP[i].pad[1], DP[i].pad[2], DP[i].pad[3],
 				DP[i].pad[4], DP[i].pad[5], DP[i].pad[6], DP[i].pad[7]);
-	//	}
+//		}
 	}
 	
 	/* Release OpenCL stuff, free the rest */
