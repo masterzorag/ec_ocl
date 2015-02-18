@@ -1,0 +1,132 @@
+#define check_return(res) \
+if (res != CL_SUCCESS) { \
+	printf("error in %d: %s\n", __LINE__, return_error(res)); \
+	return 1; \
+}
+
+cl_int error_code[] = {
+	CL_BUILD_PROGRAM_FAILURE,
+	CL_COMPILER_NOT_AVAILABLE,
+	CL_DEVICE_NOT_AVAILABLE,
+	CL_DEVICE_NOT_FOUND,
+	CL_IMAGE_FORMAT_MISMATCH,
+	CL_IMAGE_FORMAT_NOT_SUPPORTED,
+	CL_INVALID_ARG_INDEX,
+	CL_INVALID_ARG_SIZE,
+	CL_INVALID_ARG_VALUE,
+	CL_INVALID_BINARY,
+	CL_INVALID_BUFFER_SIZE,
+	CL_INVALID_BUILD_OPTIONS,
+	CL_INVALID_COMMAND_QUEUE,
+	CL_INVALID_CONTEXT,
+	CL_INVALID_DEVICE,
+	CL_INVALID_DEVICE_TYPE,
+	CL_INVALID_EVENT,
+	CL_INVALID_EVENT_WAIT_LIST,
+	CL_INVALID_GL_OBJECT,
+	CL_INVALID_GLOBAL_OFFSET,
+	CL_INVALID_HOST_PTR,
+	CL_INVALID_IMAGE_FORMAT_DESCRIPTOR,
+	CL_INVALID_IMAGE_SIZE,
+	CL_INVALID_KERNEL_NAME,
+	CL_INVALID_KERNEL,
+	CL_INVALID_KERNEL_ARGS,
+	CL_INVALID_KERNEL_DEFINITION,
+	CL_INVALID_MEM_OBJECT,
+	CL_INVALID_OPERATION,
+	CL_INVALID_PLATFORM,
+	CL_INVALID_PROGRAM,
+	CL_INVALID_PROGRAM_EXECUTABLE,
+	CL_INVALID_QUEUE_PROPERTIES,
+	CL_INVALID_SAMPLER,
+	CL_INVALID_VALUE,
+	CL_INVALID_WORK_DIMENSION,
+	CL_INVALID_WORK_GROUP_SIZE,
+	CL_INVALID_WORK_ITEM_SIZE,
+	CL_MAP_FAILURE,
+	CL_MEM_OBJECT_ALLOCATION_FAILURE,
+	CL_MEM_COPY_OVERLAP,
+	CL_OUT_OF_HOST_MEMORY,
+	CL_OUT_OF_RESOURCES,
+	CL_SUCCESS
+};
+
+char error_code_name[][50] = {
+	"CL_BUILD_PROGRAM_FAILURE",
+	"CL_COMPILER_NOT_AVAILABLE",
+	"CL_DEVICE_NOT_AVAILABLE",
+	"CL_DEVICE_NOT_FOUND",
+	"CL_IMAGE_FORMAT_MISMATCH",
+	"CL_IMAGE_FORMAT_NOT_SUPPORTED",
+	"CL_INVALID_ARG_INDEX",
+	"CL_INVALID_ARG_SIZE",
+	"CL_INVALID_ARG_VALUE",
+	"CL_INVALID_BINARY",
+	"CL_INVALID_BUFFER_SIZE",
+	"CL_INVALID_BUILD_OPTIONS",
+	"CL_INVALID_COMMAND_QUEUE",
+	"CL_INVALID_CONTEXT",
+	"CL_INVALID_DEVICE",
+	"CL_INVALID_DEVICE_TYPE",
+	"CL_INVALID_EVENT",
+	"CL_INVALID_EVENT_WAIT_LIST",
+	"CL_INVALID_GL_OBJECT",
+	"CL_INVALID_GLOBAL_OFFSET",
+	"CL_INVALID_HOST_PTR",
+	"CL_INVALID_IMAGE_FORMAT_DESCRIPTOR",
+	"CL_INVALID_IMAGE_SIZE",
+	"CL_INVALID_KERNEL_NAME",
+	"CL_INVALID_KERNEL",
+	"CL_INVALID_KERNEL_ARGS",
+	"CL_INVALID_KERNEL_DEFINITION",
+	"CL_INVALID_MEM_OBJECT",
+	"CL_INVALID_OPERATION",
+	"CL_INVALID_PLATFORM",
+	"CL_INVALID_PROGRAM",
+	"CL_INVALID_PROGRAM_EXECUTABLE",
+	"CL_INVALID_QUEUE_PROPERTIES",
+	"CL_INVALID_SAMPLER",
+	"CL_INVALID_VALUE",
+	"CL_INVALID_WORK_DIMENSION",
+	"CL_INVALID_WORK_GROUP_SIZE",
+	"CL_INVALID_WORK_ITEM_SIZE",
+	"CL_MAP_FAILURE",
+	"CL_MEM_OBJECT_ALLOCATION_FAILURE",
+	"CL_MEM_COPY_OVERLAP",
+	"CL_OUT_OF_HOST_MEMORY",
+	"CL_OUT_OF_RESOURCES",
+	"CL_SUCCESS"
+};
+
+const char *return_error(cl_int res){
+	int len = sizeof(error_code) / sizeof(cl_int);
+	for(int i=0; i<len; i++)
+		if(res == error_code[i]) return error_code_name[i];
+
+	return "Unkown return code";
+}
+
+int load_program_source(const char *filename, char **source){
+	struct stat statbuf;
+	
+	FILE *file = fopen(filename, "r");
+	if(file == 0){ fprintf(stderr, "Couldn't open %s\n", filename); return 1; }
+	
+	stat(filename, &statbuf);
+	*source = (char *)malloc(statbuf.st_size +1);
+	if(*source == NULL){ fprintf(stderr, "%d: Malloc failed\n", __LINE__); return 1; }
+	
+	fread(*source, statbuf.st_size, 1, file);
+	(*source)[statbuf.st_size]= '\0';
+	return 0;
+}
+
+int check_builderror(cl_int res, cl_program pro, cl_device_id devid){
+	char buf[2048];
+	size_t len;
+	if(res == CL_SUCCESS) return 0;
+	
+	clGetProgramBuildInfo(pro, devid, CL_PROGRAM_BUILD_LOG, sizeof(buf), buf, &len);
+	printf("%s\n", buf);
+	return 1;
+}
