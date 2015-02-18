@@ -2,16 +2,17 @@ ec_ocl
 ======
 
 Elliptic Curve OpenCL implementation
+of scalar point multiplication
 
 * Status:
 
 cl_amd
 -------
-test program executes 8 workitems in 2 groups, read and store, exist mainly for execution debugging from the kernel itself<br />
-host program compiles test.cl kernel, allocate and do memory transfers using _constant and _local address spaces.<br />
-test.cl kernel execute mostly the needed functions, some are missing; writes on _local address space, read from _constant and then exports to _global<br />
+test program executes 8 workitems in 2 groups, read and store, computes and writes back to host.<br />
+host program compiles ocl kernel, allocate and do memory transfers using _constant and _local address spaces.<br />
+writes on _local address space, read from _constant and then exports to _global<br />
+every workitems in the NDRange does the same -good- computation.<br />
 <pre>
-cl_amd # ./demo ec_p_mul.cl point_mul
 cl_amd # ./demo ec_p_mul.cl point_mul
 Check OpenCL environtment
 Connecting to OpenCL device:    AuthenticAMD AMD E-350 Processor
