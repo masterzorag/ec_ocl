@@ -1,3 +1,6 @@
+gcc -o demo_amd main.c -Wall -std=gnu99 -I/opt/AMDAPPSDK-2.9-1/lib-L/opt/AMDAPPSDK-2.9-1/lib/x86/libOpenCL.so -lrt -Wl,-rpath,/opt/AMDAPPSDK-2.9-1/lib/x86 -lOpenCL
+./demo_amd ec_p_mul.cl point_mul
+
 Check OpenCL environtment
 Connecting to OpenCL device:	AuthenticAMD AMD E-350 Processor
 CL_DEVICE_MAX_COMPUTE_UNITS	2
